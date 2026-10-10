@@ -1,0 +1,95 @@
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = [10, 6]
+
+# STEP 1: CREATE & LOAD THE RAW DATASET
+print("--- Step 1: Initializing Raw Data ---")
+
+np.random.seed(42)
+raw_data = {
+    'Employee_ID': [101, 102, 103, 104, 105, 106, 107, 108, 101, 109],  # 101 is a duplicate
+    'Department': ['Sales', 'Tech', 'HR', 'Sales', 'Tech', 'HR', 'Sales', None, 'Sales', 'Tech'], # Missing value
+    'Experience_Years': [2, 5, 1, 10, 3, 7, 4, 6, 2, 8],
+    'Monthly_Salary': [50000, 75000, 45000, 110000, 58000, 82000, 64000, 70000, 50000, 999999] # 999999 is an outlier
+}
+df = pd.DataFrame(raw_data)
+print("Original Dataset Shape:", df.shape)
+print("\nFirst 5 rows of raw dataset:")
+print(df.head())
+
+# STEP 2: DATA CLEANING & PREPROCESSING
+print("\n--- Step 2: Data Cleaning Operations ---")
+
+# 1. Handling Duplicate Rows
+duplicate_count = df.duplicated().sum()
+print(f"Found {duplicate_count} duplicate row(s). Removing them...")
+df = df.drop_duplicates()
+
+# 2. Handling Missing Categorical Values
+missing_count = df['Department'].isnull().sum()
+print(f"Found {missing_count} missing value(s) in 'Department'. Filling with Mode...")
+department_mode = df['Department'].mode()[0]
+df['Department'] = df['Department'].fillna(department_mode)
+
+# 3. Handling Numerical Outliers using the IQR Method
+print("Detecting and filtering outliers in 'Monthly_Salary'...")
+Q1 = df['Monthly_Salary'].quantile(0.25)
+Q3 = df['Monthly_Salary'].quantile(0.75)
+IQR = Q3 - Q1
+
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# Filter out rows falling outside the upper and lower statistical boundaries
+df_cleaned = df[(df['Monthly_Salary'] >= lower_bound) & (df['Monthly_Salary'] <= upper_bound)].copy()
+print("Cleaned Dataset Shape:", df_cleaned.shape)
+print("\nCleaned Data Summary:")
+print(df_cleaned.describe())
+
+# STEP 3: DATA VISUALIZATION
+print("\n--- Step 3: Generating Visualizations ---")
+
+# Ensure a local directory exists to save report figures
+os.makedirs('visual_reports', exist_ok=True)
+
+# Chart 1: Salary Distribution (Histogram with Kernel Density Estimate)
+plt.figure()
+sns.histplot(df_cleaned['Monthly_Salary'], kde=True, color='royalblue', bins=5)
+plt.title('Distribution of Employee Monthly Salaries (Cleaned Data)', fontsize=14, fontweight='bold')
+plt.xlabel('Monthly Salary ($)', fontsize=12)
+plt.ylabel('Frequency Count', fontsize=12)
+plt.tight_layout()
+plt.savefig('visual_reports/salary_distribution.png', dpi=300)
+plt.show()
+
+# Chart 2: Experience vs. Salary Analysis (Scatter Plot with Regression Trendline)
+plt.figure()
+sns.regplot(x='Experience_Years', y='Monthly_Salary', data=df_cleaned, color='darkgreen', marker='o')
+plt.title('Relationship Between Experience and Monthly Salary', fontsize=14, fontweight='bold')
+plt.xlabel('Years of Experience', fontsize=12)
+plt.ylabel('Monthly Salary ($)', fontsize=12)
+plt.tight_layout()
+plt.savefig('visual_reports/experience_vs_salary.png', dpi=300)
+plt.show()
+
+# Chart 3: Department Metrics (Bar Plot showing Mean Salaries)
+plt.figure()
+sns.barplot(x='Department', y='Monthly_Salary', data=df_cleaned, errorbar=None, palette='muted')
+plt.title('Average Monthly Salary Across Departments', fontsize=14, fontweight='bold')
+plt.xlabel('Department Name', fontsize=12)
+plt.ylabel('Average Salary ($)', fontsize=12)
+plt.tight_layout()
+plt.savefig('visual_reports/department_average_salaries.png', dpi=300)
+plt.show()
+
+# STEP 4: FINAL DATA EXPORT
+print("\n--- Step 4: Exporting Final Cleaned Output ---")
+output_path = 'visual_reports/cleaned_dataset_output.csv'
+df_cleaned.to_csv(output_path, index=False)
+print(f"SUCCESS: Cleaned data saved successfully to '{output_path}'")
+print("Project pipeline completed. Ready for submission on the Thiranex dashboard!")
